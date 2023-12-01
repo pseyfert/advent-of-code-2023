@@ -111,7 +111,55 @@ fn end_graphemes(line: &str) -> impl Iterator<Item = &str> {
     line.grapheme_indices(true)
         .chain([(line.len(), "")])
         .rev()
-        .map(move |(i, _)| &line[..i])
+        .filter_map(move |(i, _)| if i == 0 { None } else { Some(&line[..i]) })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("hai", None)]
+    #[case("hai0", Some(0))]
+    #[case("h9i_", None)]
+    #[case("9", Some(9))]
+    fn test_ends_with_real_digit(#[case] string: &str, #[case] result: Option<u32>) {
+        assert_eq!(ends_with_real_digit(string), result);
+    }
+
+    #[test]
+    fn test_start_graphemes() {
+        let mut iter = start_graphemes("asdf");
+        assert_eq!(iter.next(), Some("asdf"));
+        assert_eq!(iter.next(), Some("sdf"));
+        assert_eq!(iter.next(), Some("df"));
+        assert_eq!(iter.next(), Some("f"));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_end_graphemes() {
+        let mut iter = end_graphemes("asdf");
+        assert_eq!(iter.next(), Some("asdf"));
+        assert_eq!(iter.next(), Some("asd"));
+        assert_eq!(iter.next(), Some("as"));
+        assert_eq!(iter.next(), Some("a"));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[rstest]
+    #[case("99", 99)]
+    #[case("9", 99)]
+    #[case("9asdfsalaf9", 99)]
+    #[case("diov1jalkfd8_lsd", 18)]
+    #[case("diov1j3711ialkfd8_lsd", 18)]
+    fn test_de(#[case] string: &str, #[case] result: u32) {
+        assert_eq!(
+            serde_plain::from_str::<InputEntry>(string).unwrap().inner,
+            result
+        );
+    }
 }
 
 fn main() {
@@ -122,9 +170,10 @@ fn main() {
         .collect();
     println!("{}", input.iter().map(|e| e.inner).sum::<u32>());
 
-    let input: Vec<FancyInputEntry> = std::io::BufReader::new(std::fs::File::open("../input").unwrap())
-        .lines()
-        .map(|l| serde_plain::from_str(&l.unwrap()).unwrap())
-        .collect();
+    let input: Vec<FancyInputEntry> =
+        std::io::BufReader::new(std::fs::File::open("../input").unwrap())
+            .lines()
+            .map(|l| serde_plain::from_str(&l.unwrap()).unwrap())
+            .collect();
     println!("{}", input.iter().map(|e| e.inner).sum::<u32>());
 }
