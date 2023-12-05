@@ -53,24 +53,19 @@ impl<'de> Deserialize<'de> for Card {
     }
 }
 
-fn compute_score(c: &Card) -> u32 {
+fn compute_matches(c: &Card) -> u32 {
     let mut w = c.winning.iter();
     let mut h = c.having.iter();
 
     let mut wo = w.next();
     let mut ho = h.next();
 
-    let mut score = 0;
+    let mut matches = 0;
 
     while let (Some(wv), Some(hv)) = (wo, ho) {
         match wv.cmp(hv) {
             std::cmp::Ordering::Equal => {
-                if score == 0 {
-                    score = 1;
-                } else {
-                    score = score * 2;
-                }
-
+                matches += 1;
                 (wo, ho) = (w.next(), h.next());
             }
             std::cmp::Ordering::Less => {
@@ -79,6 +74,19 @@ fn compute_score(c: &Card) -> u32 {
             std::cmp::Ordering::Greater => {
                 ho = h.next();
             }
+        }
+    }
+    matches
+}
+
+fn compute_score(matches: u32) -> u32 {
+    let mut score = 0;
+
+    for _ in 0..matches {
+        if score == 0 {
+            score = 1;
+        } else {
+            score = score * 2;
         }
     }
     score
@@ -99,6 +107,6 @@ fn main() {
     println!("{:?}", input);
     println!(
         "score in part 1: {}",
-        input.iter().map(compute_score).sum::<u32>()
+        input.iter().map(|c| compute_score(compute_matches(c))).sum::<u32>()
     );
 }
