@@ -98,6 +98,11 @@ mod tests {
     use rstest::rstest;
 }
 
+struct Folder {
+    cards_processed: u32,
+    copies_fold: [u32; 10],
+}
+
 fn main() {
     // TODO: a serde "every line is an element" would be nicer
     let input: Vec<Card> = std::io::BufReader::new(std::fs::File::open("../input").unwrap())
@@ -107,6 +112,35 @@ fn main() {
     println!("{:?}", input);
     println!(
         "score in part 1: {}",
-        input.iter().map(|c| compute_score(compute_matches(c))).sum::<u32>()
+        input
+            .iter()
+            .map(|c| compute_score(compute_matches(c)))
+            .sum::<u32>()
     );
+
+    let f = input.iter().fold(
+        Folder {
+            cards_processed: 0,
+            copies_fold: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        },
+        |folder, card| {
+            let cards_processed = folder.cards_processed + folder.copies_fold[0];
+            let mut tmp: [u32; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]; // meaningless, but it's late
+            // ugly way to shift left
+            // also, why do i hard code 10 numbers here?
+            for i in 0..9 {
+                tmp[i] = folder.copies_fold[i + 1];
+            }
+            tmp[9] = 1;
+            for i in 0..compute_matches(card) {
+                tmp[i as usize] += folder.copies_fold[0];
+            }
+
+            Folder {
+                cards_processed,
+                copies_fold: tmp,
+            }
+        },
+    );
+    println!("part 2: {}", f.cards_processed);
 }
