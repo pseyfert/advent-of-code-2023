@@ -1,6 +1,8 @@
 // cSpell:words alman
 use just_a_filename::prelude::*;
 use rayon::prelude::*;
+use std::ops::Bound::*;
+use std::ops::RangeBounds;
 
 use std::io::BufRead;
 
@@ -14,16 +16,88 @@ struct Row {
 #[derive(Debug)]
 struct Table(Vec<Row>);
 
-fn advance_stage(input: i64, alman: &Table) -> i64 {
-    let lower_bound = match alman.0.binary_search_by(|row| row.in_start.cmp(&input)) {
-        Ok(i) => i,
-        Err(i) => {
-            if i == 0 {
-                return input;
-            } else {
-                i - 1
+fn advance_interval_stage(input: Intervals, alman: &Table) -> Intervals {
+    let mut in_iter = input.0.iter();
+    // let mut tab_iter = alman.0.iter();
+
+    // let Some(mut current_table_row) = tab_iter.next() else {
+    //     panic!("empty table?");
+    // };
+
+    let mut retval = Vec::new();
+
+    while let Some(range) = in_iter.next() {
+        let (Included(ra), Included(re)) = (range.start_bound(), range.end_bound()) else {
+            panic!("lskjfd");
+        };
+        match lb(*ra, &alman) {
+            None => {
+                // current interval starts before the table
+                if re < &alman.0.get(0).unwrap().in_start {
+                    // entire current interval before the table
+                    retval.push(range.clone());
+                } else {
+                    retval.push(*ra..=alman.0.get(0).unwrap().in_start - 1);
+                    // continue with (alman.0.get(0).unwrap().in_start..=re)
+                }
+            }
+            Some(i) => {
+                // current interval after i.start
+                let left = alman.0.get(i).unwrap();
+                if *ra > left.in_start + left.len {
+                    // TODO: check i+1 is still in range
+                    if re < &alman.0.get(i + 1).unwrap().in_start {
+                        retval.push(range.clone());
+                    } else {
+                        retval.push(*ra..=alman.0.get(i + 1).unwrap().in_start - 1);
+                        // continue with (alman.0.get(i+1).unwrap().in_start..=re)
+                    }
+                } else {
+                    todo!()
+                }
             }
         }
+    }
+    todo!();
+
+    // let Included(start_range) = input.start_bound() else {
+    //     panic!("???");
+    // };
+    // let lower_bound = match alman.0.binary_search_by(|row| row.in_start.cmp(&start_input)) {
+    //     Ok(i) => i,
+    //     Err(i) => {
+    //         if i == 0 {
+    //             return input;
+    //         } else {
+    //             i - 1
+    //         }
+    //     }
+    // };
+    // let entry = alman.0.get(lower_bound).unwrap();
+    // input
+    //     + if (input - entry.in_start) < entry.len {
+    //         entry.offset
+    //     } else {
+    //         0
+    //     }
+}
+
+fn lb(sought: i64, alman: &Table) -> Option<usize> {
+    match alman.0.binary_search_by(|row| row.in_start.cmp(&sought)) {
+        Ok(i) => Some(i),
+        Err(i) => {
+            if i == 0 {
+                None
+            } else {
+                Some(i - 1)
+            }
+        }
+    }
+}
+
+fn advance_stage(input: i64, alman: &Table) -> i64 {
+    let Some(lower_bound) = lb(input, alman) else {
+        return input;
     };
     let entry = alman.0.get(lower_bound).unwrap();
     input
@@ -98,6 +172,37 @@ mod test {
         ];
 
         assert_eq!(all_stages(4, &all), 7);
+    }
+
+    #[test]
+    fn test_intervals() {
+        assert_eq!(Intervals(vec![(1..=5)]), merge((1..=4), (2..=5)));
+        assert_eq!(Intervals(vec![(1..=10)]), merge((1..=10), (2..=5)));
+        assert_eq!(Intervals(vec![(1..=3), (9..=10)]), merge((1..=3), (9..=10)));
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct Intervals(Vec<std::ops::RangeInclusive<i64>>);
+
+fn merge(a: std::ops::RangeInclusive<i64>, b: std::ops::RangeInclusive<i64>) -> Intervals {
+    let Included(aa) = a.start_bound() else {
+        panic!("shouldn't be reachable");
+    };
+    let Included(ae) = a.end_bound() else {
+        panic!("shouldn't be reachable");
+    };
+    let Included(ba) = b.start_bound() else {
+        panic!("shouldn't be reachable");
+    };
+    let Included(be) = b.end_bound() else {
+        panic!("shouldn't be reachable");
+    };
+    assert!(aa < ba);
+    if ba <= ae {
+        Intervals(vec![(*aa..=std::cmp::max(*be, *ae))])
+    } else {
+        Intervals(vec![a, b])
     }
 }
 
