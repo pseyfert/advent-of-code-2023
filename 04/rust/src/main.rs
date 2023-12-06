@@ -109,7 +109,6 @@ fn main() {
         .lines()
         .map(|l| serde_plain::from_str(&l.unwrap()).unwrap())
         .collect();
-    println!("{:?}", input);
     println!(
         "score in part 1: {}",
         input
@@ -126,11 +125,21 @@ fn main() {
         |folder, card| {
             let cards_processed = folder.cards_processed + folder.copies_fold[0];
             let mut tmp: [u32; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]; // meaningless, but it's late
+
             // ugly way to shift left
             // also, why do i hard code 10 numbers here?
-            for i in 0..9 {
-                tmp[i] = folder.copies_fold[i + 1];
-            }
+            // for i in 0..9 {
+            //     tmp[i] = folder.copies_fold[i + 1];
+            // }
+
+            // questionable if this is any better
+            tmp.get_mut(0..9)
+                .unwrap()
+                .into_iter()
+                .zip(folder.copies_fold.get(1..10).unwrap().into_iter())
+                .for_each(|(mut t, s)| {
+                    *t = s.clone();
+                });
             tmp[9] = 1;
             for i in 0..compute_matches(card) {
                 tmp[i as usize] += folder.copies_fold[0];
