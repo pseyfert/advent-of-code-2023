@@ -1,11 +1,11 @@
 [package]
-name = "deser"
+name = "day6"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rayon = "1.8.0"
 rstest = "0.18.2"
 serde = "1.0.193"
 serde_plain = "1.0.2"
 unicode-segmentation = "1.10.1"
-just_a_filename = { path = "../../util/just_a_filename" }
