@@ -1,5 +1,7 @@
 extern crate unicode_segmentation;
 
+use just_a_filename::prelude::*;
+
 use serde::{de, Deserialize};
 use std::io::BufRead;
 use unicode_segmentation::UnicodeSegmentation;
@@ -163,15 +165,17 @@ mod tests {
 }
 
 fn main() {
+    let input_file = just_a_filename::Cli::parse().path;
     // TODO: a serde "every line is an element" would be nicer
-    let input: Vec<InputEntry> = std::io::BufReader::new(std::fs::File::open("../input").unwrap())
-        .lines()
-        .map(|l| serde_plain::from_str(&l.unwrap()).unwrap())
-        .collect();
+    let input: Vec<InputEntry> =
+        std::io::BufReader::new(std::fs::File::open(input_file.clone()).unwrap())
+            .lines()
+            .map(|l| serde_plain::from_str(&l.unwrap()).unwrap())
+            .collect();
     println!("{}", input.iter().map(|e| e.inner).sum::<u32>());
 
     let input: Vec<FancyInputEntry> =
-        std::io::BufReader::new(std::fs::File::open("../input").unwrap())
+        std::io::BufReader::new(std::fs::File::open(input_file).unwrap())
             .lines()
             .map(|l| serde_plain::from_str(&l.unwrap()).unwrap())
             .collect();
