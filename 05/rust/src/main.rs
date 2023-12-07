@@ -1,8 +1,6 @@
 // cSpell:words alman
 use just_a_filename::prelude::*;
 use rayon::prelude::*;
-use std::ops::Bound::*;
-use std::ops::RangeBounds;
 
 use std::io::BufRead;
 
@@ -27,29 +25,27 @@ fn advance_interval_stage(input: Intervals, alman: &Table) -> Intervals {
     let mut retval = Vec::new();
 
     while let Some(range) = in_iter.next() {
-        let (Included(ra), Included(re)) = (range.start_bound(), range.end_bound()) else {
-            panic!("lskjfd");
-        };
-        match lb(*ra, &alman) {
+        let (ra, re) = range.clone().into_inner();
+        match lb(ra, &alman) {
             None => {
                 // current interval starts before the table
-                if re < &alman.0.get(0).unwrap().in_start {
+                if &re < &alman.0.get(0).unwrap().in_start {
                     // entire current interval before the table
                     retval.push(range.clone());
                 } else {
-                    retval.push(*ra..=alman.0.get(0).unwrap().in_start - 1);
+                    retval.push(ra..=alman.0.get(0).unwrap().in_start - 1);
                     // continue with (alman.0.get(0).unwrap().in_start..=re)
                 }
             }
             Some(i) => {
                 // current interval after i.start
                 let left = alman.0.get(i).unwrap();
-                if *ra > left.in_start + left.len {
+                if ra > left.in_start + left.len {
                     // TODO: check i+1 is still in range
-                    if re < &alman.0.get(i + 1).unwrap().in_start {
+                    if &re < &alman.0.get(i + 1).unwrap().in_start {
                         retval.push(range.clone());
                     } else {
-                        retval.push(*ra..=alman.0.get(i + 1).unwrap().in_start - 1);
+                        retval.push(ra..=alman.0.get(i + 1).unwrap().in_start - 1);
                         // continue with (alman.0.get(i+1).unwrap().in_start..=re)
                     }
                 } else {
@@ -186,21 +182,11 @@ mod test {
 struct Intervals(Vec<std::ops::RangeInclusive<i64>>);
 
 fn merge(a: std::ops::RangeInclusive<i64>, b: std::ops::RangeInclusive<i64>) -> Intervals {
-    let Included(aa) = a.start_bound() else {
-        panic!("shouldn't be reachable");
-    };
-    let Included(ae) = a.end_bound() else {
-        panic!("shouldn't be reachable");
-    };
-    let Included(ba) = b.start_bound() else {
-        panic!("shouldn't be reachable");
-    };
-    let Included(be) = b.end_bound() else {
-        panic!("shouldn't be reachable");
-    };
+    let (aa, ae) = a.clone().into_inner();
+    let (ba, be) = b.clone().into_inner();
     assert!(aa < ba);
     if ba <= ae {
-        Intervals(vec![(*aa..=std::cmp::max(*be, *ae))])
+        Intervals(vec![(aa..=std::cmp::max(be, ae))])
     } else {
         Intervals(vec![a, b])
     }
