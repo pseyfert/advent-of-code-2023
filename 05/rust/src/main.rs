@@ -2,7 +2,7 @@
 use just_a_filename::prelude::*;
 use rayon::prelude::*;
 
-use std::io::BufRead;
+use std::{io::BufRead, ops::RangeInclusive};
 
 #[derive(Debug)]
 struct Row {
@@ -13,6 +13,70 @@ struct Row {
 
 #[derive(Debug)]
 struct Table(Vec<Row>);
+
+// todo: it's a bit sad i'm throwing away the previous position in alman, because it is already
+// known that lb would only advance (i.e. a two iterator solution would be nicer)
+fn chunk_range_and_advance(
+    range: RangeInclusive<i64>,
+    alman: &Table,
+    retval: &mut Vec<RangeInclusive<i64>>,
+) -> Option<RangeInclusive<i64>> {
+    let (ra, re) = range.clone().into_inner();
+    match lb(ra, &alman) {
+        None => {
+            // current interval starts before the table
+            if &re < &alman.0.get(0).unwrap().in_start {
+                // entire current interval before the table.
+                // no advance.
+                retval.push(range.clone());
+                None
+            } else {
+                // no advance of the unmatched part.
+                retval.push(ra..=alman.0.get(0).unwrap().in_start - 1);
+                Some(alman.0.get(0).unwrap().in_start..=re)
+            }
+        }
+        Some(i) => {
+            // current interval after i.start
+            let left = alman.0.get(i).unwrap();
+            if ra >= left.in_start + left.len {
+                // current range does not overlap with left
+                match alman.0.get(i + 1) {
+                    Some(right) => {
+                        if &re < &right.in_start {
+                            // no overlap with right
+                            // TODO: unify with None branch
+                            // no advance
+                            retval.push(range.clone());
+                            None
+                        } else {
+                            // part before right
+                            // no advance
+                            retval.push(ra..=right.in_start - 1);
+                            Some(alman.0.get(i + 1).unwrap().in_start..=re)
+                        }
+                    }
+                    None => {
+                        // there is no right
+                        // no advance
+                        retval.push(range.clone());
+                        None
+                    }
+                }
+            } else {
+                // current range overlaps with left
+                if &re < &(left.in_start + left.len) {
+                    // range contained in left
+                    retval.push((ra + left.offset)..=(re + left.offset));
+                    None
+                } else {
+                    retval.push((ra + left.offset)..=(left.in_start + left.len - 1 + left.offset));
+                    Some((left.in_start + left.len)..=re)
+                }
+            }
+        }
+    }
+}
 
 fn advance_interval_stage(input: Intervals, alman: &Table) -> Intervals {
     let mut in_iter = input.0.iter();
@@ -25,36 +89,20 @@ fn advance_interval_stage(input: Intervals, alman: &Table) -> Intervals {
     let mut retval = Vec::new();
 
     while let Some(range) = in_iter.next() {
-        let (ra, re) = range.clone().into_inner();
-        match lb(ra, &alman) {
-            None => {
-                // current interval starts before the table
-                if &re < &alman.0.get(0).unwrap().in_start {
-                    // entire current interval before the table
-                    retval.push(range.clone());
-                } else {
-                    retval.push(ra..=alman.0.get(0).unwrap().in_start - 1);
-                    // continue with (alman.0.get(0).unwrap().in_start..=re)
-                }
-            }
-            Some(i) => {
-                // current interval after i.start
-                let left = alman.0.get(i).unwrap();
-                if ra > left.in_start + left.len {
-                    // TODO: check i+1 is still in range
-                    if &re < &alman.0.get(i + 1).unwrap().in_start {
-                        retval.push(range.clone());
-                    } else {
-                        retval.push(ra..=alman.0.get(i + 1).unwrap().in_start - 1);
-                        // continue with (alman.0.get(i+1).unwrap().in_start..=re)
-                    }
-                } else {
-                    todo!()
-                }
-            }
+        let mut cur_range = Some(range.clone());
+        while let Some(range) = cur_range {
+            cur_range = chunk_range_and_advance(range, &alman, &mut retval);
         }
     }
-    todo!();
+    retval.sort_by(|a, b| a.start().cmp(b.start()));
+
+    let um = UniqueMap {
+        iter: retval.iter().peekable(),
+        p: |r| -> RangeInclusive<i64> { (*r).clone() },
+        b: |l, r| merge2(&l, &r).map(|r| r.clone()),
+    };
+    Intervals(um.collect())
+    // return Intervals(retval);
 
     // let Included(start_range) = input.start_bound() else {
     //     panic!("???");
@@ -105,9 +153,7 @@ fn advance_stage(input: i64, alman: &Table) -> i64 {
 }
 
 fn all_stages(input: i64, almanac: &Vec<Table>) -> i64 {
-    almanac
-        .iter()
-        .fold(input, |x, table| advance_stage(x, table))
+    almanac.iter().fold(input, advance_stage)
 }
 
 #[cfg(test)]
@@ -178,6 +224,50 @@ mod test {
     }
 }
 
+struct UniqueMap<I: Iterator, V, B, P>
+where
+    B: Fn(&V, &V) -> Option<V>,
+    I: Iterator,
+    P: Fn(&I::Item) -> V,
+{
+    iter: std::iter::Peekable<I>,
+    p: P,
+    b: B,
+}
+
+impl<I, V, B, P> Iterator for UniqueMap<I, V, B, P>
+where
+    B: Fn(&V, &V) -> Option<V>,
+    I: Iterator,
+    P: Fn(&I::Item) -> V,
+{
+    type Item = V;
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (low, hi) = self.iter.size_hint();
+        ((low > 0) as usize, hi)
+    }
+
+    fn next(&mut self) -> Option<V> {
+        let Some(mut acc) = self.iter.next().as_ref().map(&self.p) else {
+            return None;
+        };
+        while let Some(n) = self.iter.peek() {
+            match (self.b)(&acc, &(self.p)(n)) {
+                Some(a) => {
+                    acc = a;
+                    self.iter.next();
+                }
+                None => {
+                    return Some(acc);
+                }
+            }
+        }
+        Some(acc)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 struct Intervals(Vec<std::ops::RangeInclusive<i64>>);
 
@@ -189,6 +279,20 @@ fn merge(a: std::ops::RangeInclusive<i64>, b: std::ops::RangeInclusive<i64>) -> 
         Intervals(vec![(aa..=std::cmp::max(be, ae))])
     } else {
         Intervals(vec![a, b])
+    }
+}
+
+fn merge2(
+    a: &std::ops::RangeInclusive<i64>,
+    b: &std::ops::RangeInclusive<i64>,
+) -> Option<std::ops::RangeInclusive<i64>> {
+    let (aa, ae) = a.clone().into_inner();
+    let (ba, be) = b.clone().into_inner();
+    assert!(aa < ba);
+    if ba <= ae {
+        Some(aa..=std::cmp::max(be, ae))
+    } else {
+        None
     }
 }
 
