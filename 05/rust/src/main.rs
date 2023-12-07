@@ -22,10 +22,10 @@ fn chunk_range_and_advance(
     retval: &mut Vec<RangeInclusive<i64>>,
 ) -> Option<RangeInclusive<i64>> {
     let (ra, re) = range.clone().into_inner();
-    match lb(ra, &alman) {
+    match lb(ra, alman) {
         None => {
             // current interval starts before the table
-            if &re < &alman.0.get(0).unwrap().in_start {
+            if re < alman.0.get(0).unwrap().in_start {
                 // entire current interval before the table.
                 // no advance.
                 retval.push(range.clone());
@@ -43,7 +43,7 @@ fn chunk_range_and_advance(
                 // current range does not overlap with left
                 match alman.0.get(i + 1) {
                     Some(right) => {
-                        if &re < &right.in_start {
+                        if re < right.in_start {
                             // no overlap with right
                             // TODO: unify with None branch
                             // no advance
@@ -65,7 +65,7 @@ fn chunk_range_and_advance(
                 }
             } else {
                 // current range overlaps with left
-                if &re < &(left.in_start + left.len) {
+                if re < (left.in_start + left.len) {
                     // range contained in left
                     retval.push((ra + left.offset)..=(re + left.offset));
                     None
@@ -78,8 +78,12 @@ fn chunk_range_and_advance(
     }
 }
 
+fn all_interval_stages(input: Intervals, almanac: &[Table]) -> Intervals {
+    almanac.iter().fold(input, advance_interval_stage)
+}
+
 fn advance_interval_stage(input: Intervals, alman: &Table) -> Intervals {
-    let mut in_iter = input.0.iter();
+    let in_iter = input.0.iter();
     // let mut tab_iter = alman.0.iter();
 
     // let Some(mut current_table_row) = tab_iter.next() else {
@@ -88,10 +92,10 @@ fn advance_interval_stage(input: Intervals, alman: &Table) -> Intervals {
 
     let mut retval = Vec::new();
 
-    while let Some(range) = in_iter.next() {
+    for range in in_iter {
         let mut cur_range = Some(range.clone());
         while let Some(range) = cur_range {
-            cur_range = chunk_range_and_advance(range, &alman, &mut retval);
+            cur_range = chunk_range_and_advance(range, alman, &mut retval);
         }
     }
     retval.sort_by(|a, b| a.start().cmp(b.start()));
@@ -99,7 +103,7 @@ fn advance_interval_stage(input: Intervals, alman: &Table) -> Intervals {
     let um = UniqueMap {
         iter: retval.iter().peekable(),
         p: |r| -> RangeInclusive<i64> { (*r).clone() },
-        b: |l, r| merge2(&l, &r).map(|r| r.clone()),
+        b: merge2,
     };
     Intervals(um.collect())
     // return Intervals(retval);
@@ -152,7 +156,7 @@ fn advance_stage(input: i64, alman: &Table) -> i64 {
         }
 }
 
-fn all_stages(input: i64, almanac: &Vec<Table>) -> i64 {
+fn all_stages(input: i64, almanac: &[Table]) -> i64 {
     almanac.iter().fold(input, advance_stage)
 }
 
@@ -218,9 +222,12 @@ mod test {
 
     #[test]
     fn test_intervals() {
-        assert_eq!(Intervals(vec![(1..=5)]), merge((1..=4), (2..=5)));
-        assert_eq!(Intervals(vec![(1..=10)]), merge((1..=10), (2..=5)));
-        assert_eq!(Intervals(vec![(1..=3), (9..=10)]), merge((1..=3), (9..=10)));
+        assert_eq!(Intervals(vec![(1..=5)]), merge(1..=4, 2..=5));
+        assert_eq!(Intervals(vec![(1..=10)]), merge(1..=10, 2..=5));
+        assert_eq!(Intervals(vec![(1..=3), (9..=10)]), merge(1..=3, 9..=10));
+        assert_eq!(Some(1..=5), merge2(&(1..=4), &(2..=5)));
+        assert_eq!(Some(1..=10), merge2(&(1..=10), &(2..=5)));
+        assert_eq!(None, merge2(&(1..=3), &(9..=10)));
     }
 }
 
@@ -312,10 +319,19 @@ fn main() {
     line_iter.next();
     line_iter.next();
 
+    let seed_intervals: Vec<_> = seeds
+        .iter()
+        .zip(seeds.iter().skip(1))
+        .step_by(2)
+        .map(|(a, l)| (*a..=(a + l - 1)))
+        .collect();
+    println!("{seeds:?}");
+    println!("{seed_intervals:?}");
+
     let mut cur_table = Table(vec![]);
     let mut table_vec = vec![];
     while let Some(Ok(cur_line)) = line_iter.next() {
-        if cur_line == "" {
+        if cur_line.is_empty() {
             // cur_table.0.sort_by(|a, b| a.in_start.cmp(&b.in_start));
             cur_table
                 .0
@@ -333,7 +349,7 @@ fn main() {
             split_iter.next(),
         ) else {
             println!("parsing error: {cur_line}");
-            return ();
+            return;
         };
         let (in_start, out_start, len) = (
             in_start.parse::<i64>().unwrap(),
@@ -361,4 +377,13 @@ fn main() {
         .unwrap();
 
     println!("{part1:?}");
+
+    println!(
+        "{}",
+        all_interval_stages(Intervals(seed_intervals), &table_vec)
+            .0
+            .get(0)
+            .unwrap()
+            .start()
+    );
 }
