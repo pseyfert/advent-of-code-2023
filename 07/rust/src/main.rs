@@ -1,7 +1,6 @@
 // cSpell:words alman
 use itertools::Itertools;
 use just_a_filename::prelude::*;
-use rayon::prelude::*;
 
 use std::{io::BufRead, str::FromStr};
 
@@ -143,7 +142,7 @@ impl PartialOrd for Value {
 }
 
 fn value(h: &Hand) -> Value {
-    let mut tmp: Vec<_> = (&h.cards).into_iter().map(|c| c.clone()).collect();
+    let mut tmp: Vec<_> = h.cards.iter().collect();
     tmp.sort();
     let mut grml = Vec::new();
     for (_k, g) in &tmp.iter().group_by(|c| c.clone()) {
@@ -178,8 +177,9 @@ fn value(h: &Hand) -> Value {
 }
 
 fn value_joker(h: &Hand) -> Value {
-    let mut tmp: Vec<_> = (&h.cards)
-        .into_iter()
+    let mut tmp: Vec<_> = h
+        .cards
+        .iter()
         .filter_map(|c| match c {
             Card::Number(1) => None,
             c => Some(c.clone()),
@@ -220,9 +220,9 @@ fn value_joker(h: &Hand) -> Value {
 fn hand_ord_joker(lhs: &Hand, rhs: &Hand) -> std::cmp::Ordering {
     match value_joker(lhs).cmp(&value_joker(rhs)) {
         std::cmp::Ordering::Equal => {
-            for (lc, rc) in (&lhs.cards).into_iter().zip(&rhs.cards) {
+            for (lc, rc) in lhs.cards.iter().zip(&rhs.cards) {
                 if *lc != *rc {
-                    return lc.cmp(&rc);
+                    return lc.cmp(rc);
                 }
             }
             std::cmp::Ordering::Equal
@@ -235,9 +235,9 @@ impl Ord for Hand {
     fn cmp(&self, other: &Hand) -> std::cmp::Ordering {
         match value(self).cmp(&value(other)) {
             std::cmp::Ordering::Equal => {
-                for (lc, rc) in (&self.cards).into_iter().zip(&other.cards) {
+                for (lc, rc) in self.cards.iter().zip(&other.cards) {
                     if *lc != *rc {
-                        return lc.cmp(&rc);
+                        return lc.cmp(rc);
                     }
                 }
                 std::cmp::Ordering::Equal
@@ -260,7 +260,7 @@ struct Hand {
 }
 
 fn main() {
-    let mut line_iter =
+    let line_iter =
         std::io::BufReader::new(std::fs::File::open(just_a_filename::Cli::parse().path).unwrap())
             .lines()
             .map(|l| l.unwrap());
