@@ -144,15 +144,12 @@ impl PartialOrd for Value {
 fn value(h: &Hand) -> Value {
     let mut tmp: Vec<_> = h.cards.iter().collect();
     tmp.sort();
-    let mut grml = Vec::new();
-    for (_k, g) in &tmp.iter().group_by(|c| c.clone()) {
-        let mut why = 0;
-        for _gg in g {
-            why += 1;
-        }
-
-        grml.push(why);
-    }
+    let mut grml: Vec<_> = tmp
+        .iter()
+        .group_by(|c| *c)
+        .into_iter()
+        .map(|(_k, g)| g.into_iter().count())
+        .collect();
     grml.sort();
     match grml.len() {
         1 => Value::FiveOfAKind,
@@ -186,15 +183,12 @@ fn value_joker(h: &Hand) -> Value {
         })
         .collect();
     tmp.sort();
-    let mut grml = Vec::new();
-    for (_k, g) in &tmp.iter().group_by(|c| c.clone()) {
-        let mut why = 0;
-        for _gg in g {
-            why += 1;
-        }
-
-        grml.push(why);
-    }
+    let mut grml: Vec<_> = tmp
+        .iter()
+        .group_by(|c| *c)
+        .into_iter()
+        .map(|(_k, g)| g.into_iter().count())
+        .collect();
     grml.sort();
     match grml.len() {
         0 | 1 => Value::FiveOfAKind,

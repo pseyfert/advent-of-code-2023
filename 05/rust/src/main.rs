@@ -1,4 +1,5 @@
 // cSpell:words alman
+use itertools::Itertools;
 use just_a_filename::prelude::*;
 use rayon::prelude::*;
 
@@ -321,9 +322,17 @@ fn main() {
 
     let seed_intervals: Vec<_> = seeds
         .iter()
-        .zip(seeds.iter().skip(1))
-        .step_by(2)
-        .map(|(a, l)| (*a..=(a + l - 1)))
+        .chunks(2)
+        .into_iter()
+        .map(|chunk| {
+            let mut chunk_iter = chunk.into_iter();
+            let (Some(start), Some(len), None) =
+                (chunk_iter.next(), chunk_iter.next(), chunk_iter.next())
+            else {
+                panic!();
+            };
+            *start..=(*start + *len - 1)
+        })
         .collect();
     println!("{seeds:?}");
     println!("{seed_intervals:?}");
