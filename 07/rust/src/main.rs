@@ -177,6 +177,60 @@ fn value(h: &Hand) -> Value {
     }
 }
 
+fn value_joker(h: &Hand) -> Value {
+    let mut tmp: Vec<_> = (&h.cards)
+        .into_iter()
+        .filter_map(|c| match c {
+            Card::Number(1) => None,
+            c => Some(c.clone()),
+        })
+        .collect();
+    tmp.sort();
+    let mut grml = Vec::new();
+    for (_k, g) in &tmp.iter().group_by(|c| c.clone()) {
+        let mut why = 0;
+        for _gg in g {
+            why += 1;
+        }
+
+        grml.push(why);
+    }
+    grml.sort();
+    match grml.len() {
+        0 | 1 => Value::FiveOfAKind,
+        2 => {
+            if *grml.get(0).unwrap() == 1 {
+                Value::FourOfAKind
+            } else {
+                Value::FullHouse
+            }
+        }
+        3 => {
+            if *grml.get(1).unwrap() == 2 {
+                Value::TwoPairs
+            } else {
+                Value::ThreeOfAKind
+            }
+        }
+        4 => Value::OnePair,
+        5 => Value::HighCard,
+        _ => panic!("more than 5 cards?"),
+    }
+}
+fn hand_ord_joker(lhs: &Hand, rhs: &Hand) -> std::cmp::Ordering {
+    match value_joker(lhs).cmp(&value_joker(rhs)) {
+        std::cmp::Ordering::Equal => {
+            for (lc, rc) in (&lhs.cards).into_iter().zip(&rhs.cards) {
+                if *lc != *rc {
+                    return lc.cmp(&rc);
+                }
+            }
+            std::cmp::Ordering::Equal
+        }
+        o => o,
+    }
+}
+
 impl Ord for Hand {
     fn cmp(&self, other: &Hand) -> std::cmp::Ordering {
         match value(self).cmp(&value(other)) {
@@ -219,6 +273,39 @@ fn main() {
     println!(
         "{}",
         h.iter()
+            .enumerate()
+            .map(|(i, h)| (i + 1) as u64 * h.bid)
+            .sum::<u64>()
+    );
+
+    let mut hand_part2: Vec<_> = h
+        .iter()
+        .map(|h| {
+            let mut tmp2: [Card; 5] = [Card::Ace, Card::Ace, Card::Ace, Card::Ace, Card::Ace];
+            for (i, c) in h
+                .cards
+                .iter()
+                .map(|c| match c {
+                    Card::Jack => Card::Number(1),
+                    c => c.clone(), // TODO: convince the compiler that move would be fine?
+                })
+                .enumerate()
+            {
+                tmp2[i] = c;
+            }
+
+            Hand {
+                cards: tmp2,
+                bid: h.bid,
+            }
+        })
+        .collect();
+    hand_part2.sort_by(hand_ord_joker);
+
+    println!(
+        "{}",
+        hand_part2
+            .iter()
             .enumerate()
             .map(|(i, h)| (i + 1) as u64 * h.bid)
             .sum::<u64>()
