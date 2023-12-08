@@ -4,13 +4,13 @@ use just_a_filename::prelude::*;
 
 use std::{io::BufRead, str::FromStr};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 enum Card {
-    Ace,
-    King,
-    Queen,
-    Jack,
     Number(u8),
+    Jack,
+    Queen,
+    King,
+    Ace,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -75,70 +75,16 @@ impl FromStr for Hand {
     }
 }
 
-impl PartialOrd for Card {
-    fn partial_cmp(&self, other: &Card) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
 
-impl Ord for Card {
-    fn cmp(&self, other: &Card) -> std::cmp::Ordering {
-        match (self, other) {
-            (Card::Number(l), Card::Number(r)) => l.cmp(r),
-            (Card::Number(_), _) => std::cmp::Ordering::Less,
-            (_, Card::Number(_)) => std::cmp::Ordering::Greater,
-            (Card::Ace, Card::Ace) => std::cmp::Ordering::Equal,
-            (Card::Ace, _) => std::cmp::Ordering::Greater,
-            (_, Card::Ace) => std::cmp::Ordering::Less,
-            (Card::King, Card::King) => std::cmp::Ordering::Equal,
-            (Card::King, _) => std::cmp::Ordering::Greater,
-            (_, Card::King) => std::cmp::Ordering::Less,
-            (Card::Queen, Card::Queen) => std::cmp::Ordering::Equal,
-            (Card::Queen, _) => std::cmp::Ordering::Greater,
-            (_, Card::Queen) => std::cmp::Ordering::Less,
-            (Card::Jack, Card::Jack) => std::cmp::Ordering::Equal,
-        }
-    }
-}
-
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, PartialOrd, Ord)]
 enum Value {
-    FiveOfAKind,
-    FourOfAKind,
-    FullHouse,
-    ThreeOfAKind,
-    TwoPairs,
-    OnePair,
     HighCard,
-}
-
-impl Ord for Value {
-    fn cmp(&self, other: &Value) -> std::cmp::Ordering {
-        if self == other {
-            std::cmp::Ordering::Equal
-        } else {
-            match (self, other) {
-                (Value::FiveOfAKind, _) => std::cmp::Ordering::Greater,
-                (_, Value::FiveOfAKind) => std::cmp::Ordering::Less,
-                (Value::FourOfAKind, _) => std::cmp::Ordering::Greater,
-                (_, Value::FourOfAKind) => std::cmp::Ordering::Less,
-                (Value::FullHouse, _) => std::cmp::Ordering::Greater,
-                (_, Value::FullHouse) => std::cmp::Ordering::Less,
-                (Value::ThreeOfAKind, _) => std::cmp::Ordering::Greater,
-                (_, Value::ThreeOfAKind) => std::cmp::Ordering::Less,
-                (Value::TwoPairs, _) => std::cmp::Ordering::Greater,
-                (_, Value::TwoPairs) => std::cmp::Ordering::Less,
-                (Value::OnePair, _) => std::cmp::Ordering::Greater,
-                (_, Value::OnePair) => std::cmp::Ordering::Less,
-                (Value::HighCard, Value::HighCard) => panic!("unreachable"),
-            }
-        }
-    }
-}
-impl PartialOrd for Value {
-    fn partial_cmp(&self, other: &Value) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
+    OnePair,
+    TwoPairs,
+    ThreeOfAKind,
+    FullHouse,
+    FourOfAKind,
+    FiveOfAKind,
 }
 
 fn value(h: &Hand) -> Value {
