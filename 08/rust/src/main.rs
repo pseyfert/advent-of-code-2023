@@ -1,7 +1,10 @@
 // cSpell:words alman
 use itertools::Itertools;
 use just_a_filename::prelude::*;
+use rayon::prelude::*;
 use thiserror::Error;
+
+use std::collections::HashMap;
 
 use std::{io::BufRead, str::FromStr};
 
@@ -10,6 +13,9 @@ enum Instruction {
     Left,
     Right,
 }
+
+mod part2;
+use part2::{CycleDetector, Cycles, InstState};
 
 #[derive(Error, Debug)]
 #[error("parser error")]
@@ -24,6 +30,35 @@ impl TryFrom<char> for Instruction {
             _ => Err(InvalidCharForDirection {}),
         }
     }
+}
+
+fn p2_brute(
+    instructions: &Vec<Instruction>,
+    state: (Vec<[char; 3]>, usize),
+    left_map: &HashMap<[char; 3], [char; 3]>,
+    right_map: &HashMap<[char; 3], [char; 3]>,
+) {
+    let part2 = instructions
+        .iter()
+        .cycle()
+        .scan(state, |pos, i| {
+            if (pos.0).par_iter().all(|loc| loc[2] == 'Z') {
+                None
+            } else {
+                pos.0.par_iter_mut().for_each(|loc| {
+                    *loc = match i {
+                        Instruction::Left => left_map[loc],
+                        Instruction::Right => right_map[loc],
+                    };
+                });
+                // println!("debug step {}: {:?}", pos.1, pos.0);
+                pos.1 += 1;
+                Some(pos.1)
+            }
+        })
+        .count();
+
+    println!("{part2}");
 }
 
 fn main() {
@@ -106,4 +141,40 @@ fn main() {
         })
         .count();
     println!("{part1}");
+
+    let p2_starts: Vec<_> = left_map.keys().cloned().filter(|l| l[2] == 'A').collect();
+
+    let state: (Vec<[char; 3]>, usize) = (p2_starts.clone(), 0);
+
+    p2_starts
+        .into_iter()
+        .map(|start_loc| {
+            instructions
+                .iter()
+                .enumerate()
+                .cycle()
+                .enumerate()
+                .map(|(total_i, (inst_i, inst))| {
+                    let run_i = total_i / instructions.len();
+                    (inst, InstState((inst_i, run_i)))
+                })
+                .scan(
+                    (start_loc, CycleDetector::new()),
+                    |(pos, detector), inst| {
+                        *pos = match inst.0 {
+                            Instruction::Left => left_map[pos],
+                            Instruction::Right => right_map[pos],
+                        };
+
+                        match detector.add_dest(*pos, inst.1) {
+                            // Here I need to trick the `scan` abort condition
+                            None => Some(None),
+                            Some(result) => Some(Some(result)),
+                        }
+                    },
+                )
+                .find_map(|ooc| ooc)
+                .expect("never went into cycle?")
+        })
+        .collect::<Vec<Cycles>>();
 }
