@@ -16,10 +16,11 @@ pub struct CycleDetector {
     dests_seen: HashMap<[char; 3], Vec<InstState>>,
 }
 
+#[derive(Debug)]
 pub struct Cycles {
-    single_visits: Vec<InstState>,
-    cycle_visits: Vec<InstState>,
-    cycle_len: usize,
+    pub single_visits: Vec<InstState>,
+    pub cycle_visits: Vec<InstState>,
+    pub cycle_len: usize,
 }
 
 impl CycleDetector {
