@@ -21,52 +21,19 @@ fn main() {
             })
             .collect();
 
-    let p1 = input
-        .par_iter()
-        .map(|measurement_series| -> i64 {
+    let res = input
+        .iter()
+        .map(|measurement_series| {
             (0..)
                 .scan(measurement_series.clone(), |state, _| {
                     // return the last element of the current row and update state to the adjacent
                     // difference.
-                    let rv = state.last().unwrap();
+                    let rv = (*state.first().unwrap(), *state.last().unwrap());
 
                     let rv = if state.par_iter().all(|v| *v == 0) {
                         None
                     } else {
-                        Some(*rv)
-                    };
-
-                    *state = state
-                        .par_windows(2)
-                        .map(|two| {
-                            let mut it = two.iter();
-                            let (Some(lhs), Some(rhs), None) = (it.next(), it.next(), it.next())
-                            else {
-                                panic!("wtf?");
-                            };
-                            rhs - lhs
-                        })
-                        .collect::<Vec<i64>>();
-                    rv
-                })
-                .sum::<i64>()
-        })
-        .sum::<i64>();
-    println!("Part 1: {p1}");
-
-    let p2 = input
-        .par_iter()
-        .map(|measurement_series| -> i64 {
-            (0..)
-                .scan(measurement_series.clone(), |state, _| {
-                    // return the last element of the current row and update state to the adjacent
-                    // difference.
-                    let rv = state.first().unwrap();
-
-                    let rv = if state.par_iter().all(|v| *v == 0) {
-                        None
-                    } else {
-                        Some(*rv)
+                        Some(rv)
                     };
 
                     *state = state
@@ -83,9 +50,10 @@ fn main() {
                     rv
                 })
                 .enumerate()
-                .map(|(i, c)| if i % 2 == 0 { c } else { -c })
-                .sum::<i64>()
+                .map(|(i, (f, l))| if i % 2 == 0 { (f, l) } else { (-f, l) })
+                .fold((0, 0), |(af, al), (f, l)| (af + f, al + l))
         })
-        .sum::<i64>();
-    println!("Part 2: {p2}");
+        .fold((0, 0), |(af, al), (f, l)| (af + f, al + l));
+    println!("Part 1: {}", res.1);
+    println!("Part 2: {}", res.0);
 }
