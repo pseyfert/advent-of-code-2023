@@ -22,7 +22,7 @@ fn main() {
             .collect();
 
     let res = input
-        .iter()
+        .par_iter()
         .map(|measurement_series| {
             (0..)
                 .scan(measurement_series.clone(), |state, _| {
@@ -53,7 +53,7 @@ fn main() {
                 .map(|(i, (f, l))| if i % 2 == 0 { (f, l) } else { (-f, l) })
                 .fold((0, 0), |(af, al), (f, l)| (af + f, al + l))
         })
-        .fold((0, 0), |(af, al), (f, l)| (af + f, al + l));
+        .reduce(|| (0, 0), |lhs, rhs| (lhs.0 + rhs.0, lhs.1 + rhs.1));
     println!("Part 1: {}", res.1);
     println!("Part 2: {}", res.0);
 }
