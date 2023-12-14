@@ -1,3 +1,4 @@
+use core::panic;
 use just_a_filename::prelude::*;
 use std::{io::BufRead, str::FromStr};
 use thiserror::Error;
@@ -29,9 +30,9 @@ struct PropagationError {}
 #[error("invalid character in map")]
 struct ParsingError {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Row(usize);
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Col(usize);
 
 #[derive(Debug, Clone)]
@@ -156,7 +157,7 @@ fn main() {
         .unwrap();
 
     let random_init_state = State {
-        pos: start,
+        pos: start.clone(),
         mom: Direction::N,
         steps: 0,
     };
@@ -176,24 +177,92 @@ fn main() {
     assert!(init_tests.iter().all(|s| s.steps == 1));
 
     let mut state_iter: State = (**init_tests.first().unwrap()).clone();
-    let p1;
 
-    loop {
-        let tmp = try_prop(&input, &state_iter.clone(), state_iter.mom.clone());
-        match tmp {
-            Ok(state) => {
-                state_iter = state;
+    let main_loop: Vec<_> = (0..)
+        .scan(state_iter, |state, _| {
+            let tmp = try_prop(&input, &state.clone(), state.mom.clone());
+            match tmp {
+                Ok(new_state) => {
+                    let rv = Some(new_state.pos.clone());
+                    *state = new_state;
+                    rv
+                }
+                Err(PropException::Start(result)) => None,
+                _ => {
+                    panic!();
+                }
             }
-            Err(PropException::Start(result)) => {
-                p1 = result;
-                break;
+        })
+        .chain(std::iter::once(start))
+        .chain(std::iter::once((**init_tests.first().unwrap()).pos.clone()))
+        .collect();
+
+    let p1 = main_loop.len() / 2;
+    println!("{p1}");
+
+    let mut inside = 0usize;
+    for row in 0..140 {
+        for col in 0..140 {
+            if main_loop
+                .iter()
+                .find(|pos| **pos == (Row(row), Col(col)))
+                .is_some()
+            {
+                continue;
             }
-            _ => {
-                panic!();
+            let row_scan = if row < 70 { (0..row) } else { (row + 1..140) };
+
+            let mut complete_crossings = 0usize;
+            let mut open_east = false;
+            let mut open_west = false;
+            for scan_point in row_scan {
+                if main_loop
+                    .iter()
+                    .find(|pos| **pos == (Row(scan_point), Col(col)))
+                    .is_none()
+                {
+                    continue;
+                }
+                match at(&input, &(Row(scan_point), Col(col))).unwrap() {
+                    Cell::EW => complete_crossings += 1,
+                    Cell::Void | Cell::NS => { /* ignore */ }
+                    Cell::NW | Cell::Start | Cell::SW => {
+                        /* I manually looked at the input */
+                        if open_east {
+                            open_east = false;
+                            complete_crossings += 1;
+                        } else if open_west {
+                            open_west = false;
+                        } else {
+                            open_west = true;
+                        }
+                    }
+                    Cell::NE | Cell::SE => {
+                        if open_west {
+                            complete_crossings += 1;
+                            open_west = false;
+                        } else if open_east {
+                            open_east = false;
+                        } else {
+                            open_east = true;
+                        }
+                    }
+                }
+            }
+            assert!(!open_east);
+            assert!(!open_west);
+
+            let complete_crossings = complete_crossings % 2;
+            match complete_crossings {
+                1 => {
+                    inside += 1;
+                }
+                0 => {}
+                _ => {
+                    panic!();
+                }
             }
         }
     }
-
-    let p1 = p1/2;
-    println!("{p1}");
+    println!("{inside}");
 }
