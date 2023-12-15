@@ -201,13 +201,19 @@ fn main() {
     println!("{p1}");
 
     let mut inside = 0usize;
-    for row in 0..140 {
-        for col in 0..140 {
+    let mut prev_inside = false;
+    for col in 0..140 {
+        for row in 0..140 {
             if main_loop
                 .iter()
                 .find(|pos| **pos == (Row(row), Col(col)))
                 .is_some()
             {
+                prev_inside = false;
+                continue;
+            }
+            if prev_inside {
+                inside += 1;
                 continue;
             }
             let row_scan = if row < 70 { (0..row) } else { (row + 1..140) };
@@ -255,9 +261,12 @@ fn main() {
             let complete_crossings = complete_crossings % 2;
             match complete_crossings {
                 1 => {
+                    prev_inside = true;
                     inside += 1;
                 }
-                0 => {}
+                0 => {
+                    prev_inside = false;
+                }
                 _ => {
                     panic!();
                 }
