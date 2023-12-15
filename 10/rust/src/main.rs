@@ -221,6 +221,9 @@ fn main() {
             let mut complete_crossings = 0usize;
             let mut open_east = false;
             let mut open_west = false;
+            
+            // TODO: actually this is silly, why loop over row twice? the scan_point loop alone
+            // could keep track of inside/boundary/outside and do the entire row.
             for scan_point in row_scan {
                 if main_loop
                     .iter()
