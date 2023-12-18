@@ -60,21 +60,19 @@ impl FromStr for Hand {
             return Err(NotAHand);
         };
         assert_eq!(5, cards.len());
-        let mut tmp: [Card; 5] = [Card::Ace, Card::Ace, Card::Ace, Card::Ace, Card::Ace];
-        for (i, c) in cards
+        let tmp: [Card; 5] = cards
             .chars()
             .map(|c| Card::try_from(c).unwrap())
-            .enumerate()
-        {
-            tmp[i] = c;
-        }
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
         Ok(Hand {
             cards: tmp,
             bid: bid.parse::<u64>().unwrap(),
         })
     }
 }
-
 
 #[derive(PartialEq, Eq, Debug, PartialOrd, Ord)]
 enum Value {
@@ -88,15 +86,14 @@ enum Value {
 }
 
 fn value(h: &Hand) -> Value {
-    let mut tmp: Vec<_> = h.cards.iter().collect();
-    tmp.sort();
-    let mut grml: Vec<_> = tmp
+    let tmp: Vec<_> = h.cards.iter().sorted().collect();
+    let grml: Vec<_> = tmp
         .iter()
         .group_by(|c| *c)
         .into_iter()
         .map(|(_k, g)| g.into_iter().count())
+        .sorted()
         .collect();
-    grml.sort();
     match grml.len() {
         1 => Value::FiveOfAKind,
         2 => {
@@ -120,22 +117,22 @@ fn value(h: &Hand) -> Value {
 }
 
 fn value_joker(h: &Hand) -> Value {
-    let mut tmp: Vec<_> = h
+    let tmp: Vec<_> = h
         .cards
         .iter()
         .filter_map(|c| match c {
             Card::Number(1) => None,
             c => Some(c.clone()),
         })
+        .sorted()
         .collect();
-    tmp.sort();
-    let mut grml: Vec<_> = tmp
+    let grml: Vec<_> = tmp
         .iter()
         .group_by(|c| *c)
         .into_iter()
         .map(|(_k, g)| g.into_iter().count())
+        .sorted()
         .collect();
-    grml.sort();
     match grml.len() {
         0 | 1 => Value::FiveOfAKind,
         2 => {
@@ -204,11 +201,10 @@ fn main() {
         std::io::BufReader::new(std::fs::File::open(just_a_filename::Cli::parse().path).unwrap())
             .lines()
             .map(|l| l.unwrap());
-    let mut h: Vec<_> = line_iter
+    let h: Vec<_> = line_iter
         .map(|l| Hand::from_str(l.as_str()).unwrap())
+        .sorted()
         .collect();
-    h.sort();
-    // println!("{h:?}");
 
     println!(
         "{}",
@@ -218,29 +214,27 @@ fn main() {
             .sum::<u64>()
     );
 
-    let mut hand_part2: Vec<_> = h
+    let hand_part2: Vec<_> = h
         .iter()
         .map(|h| {
-            let mut tmp2: [Card; 5] = [Card::Ace, Card::Ace, Card::Ace, Card::Ace, Card::Ace];
-            for (i, c) in h
+            let tmp2: [Card; 5] = h
                 .cards
                 .iter()
                 .map(|c| match c {
                     Card::Jack => Card::Number(1),
                     c => c.clone(), // TODO: convince the compiler that move would be fine?
                 })
-                .enumerate()
-            {
-                tmp2[i] = c;
-            }
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
 
             Hand {
                 cards: tmp2,
                 bid: h.bid,
             }
         })
+        .sorted_by(hand_ord_joker)
         .collect();
-    hand_part2.sort_by(hand_ord_joker);
 
     println!(
         "{}",
