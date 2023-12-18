@@ -85,37 +85,6 @@ enum Value {
     FiveOfAKind,
 }
 
-fn value(h: &Hand) -> Value {
-    let tmp: Vec<_> = h.cards.iter().sorted().collect();
-    let grml: Vec<_> = tmp
-        .iter()
-        .group_by(|c| *c)
-        .into_iter()
-        .map(|(_k, g)| g.into_iter().count())
-        .sorted()
-        .collect();
-    match grml.len() {
-        1 => Value::FiveOfAKind,
-        2 => {
-            if *grml.get(0).unwrap() == 1 {
-                Value::FourOfAKind
-            } else {
-                Value::FullHouse
-            }
-        }
-        3 => {
-            if *grml.get(2).unwrap() == 3 {
-                Value::ThreeOfAKind
-            } else {
-                Value::TwoPairs
-            }
-        }
-        4 => Value::OnePair,
-        5 => Value::HighCard,
-        _ => panic!("more than 5 cards?"),
-    }
-}
-
 fn value_joker(h: &Hand) -> Value {
     let tmp: Vec<_> = h
         .cards
@@ -154,23 +123,10 @@ fn value_joker(h: &Hand) -> Value {
         _ => panic!("more than 5 cards?"),
     }
 }
-fn hand_ord_joker(lhs: &Hand, rhs: &Hand) -> std::cmp::Ordering {
-    match value_joker(lhs).cmp(&value_joker(rhs)) {
-        std::cmp::Ordering::Equal => {
-            for (lc, rc) in lhs.cards.iter().zip(&rhs.cards) {
-                if *lc != *rc {
-                    return lc.cmp(rc);
-                }
-            }
-            std::cmp::Ordering::Equal
-        }
-        o => o,
-    }
-}
 
 impl Ord for Hand {
     fn cmp(&self, other: &Hand) -> std::cmp::Ordering {
-        match value(self).cmp(&value(other)) {
+        match value_joker(self).cmp(&value_joker(other)) {
             std::cmp::Ordering::Equal => {
                 for (lc, rc) in self.cards.iter().zip(&other.cards) {
                     if *lc != *rc {
@@ -233,7 +189,7 @@ fn main() {
                 bid: h.bid,
             }
         })
-        .sorted_by(hand_ord_joker)
+        .sorted()
         .collect();
 
     println!(
